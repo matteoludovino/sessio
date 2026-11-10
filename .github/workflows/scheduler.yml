@@ -1,0 +1,40 @@
+# External trigger for the periodic work: the free API instance sleeps, so nothing in-process
+# can be relied on. Every step on the API side is idempotent and safe to run concurrently.
+# Needs two repository secrets: API_URL (https://sessio-api.onrender.com) and JOBS_SECRET.
+# Note: GitHub disables scheduled workflows after 60 days without repository activity.
+name: Scheduler
+
+on:
+  schedule:
+    - cron: "17 * * * *" # hourly: series horizon, reminders, outbox drain
+    - cron: "0 6 * * *"  # 03:00 in São Paulo: demo reset
+  workflow_dispatch:
+    inputs:
+      task:
+        description: What to run
+        type: choice
+        options: [jobs, demo-reset]
+        default: jobs
+
+concurrency:
+  group: scheduler-${{ github.event.schedule || inputs.task }}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the API
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          JOBS_SECRET: ${{ secrets.JOBS_SECRET }}
+          TASK: ${{ github.event.schedule == '0 6 * * *' && 'demo-reset' || inputs.task || 'jobs' }}
+        run: |
+          case "$TASK" in
+            demo-reset) path=/api/internal/demo/reset ;;
+            *) path=/api/internal/jobs/run ;;
+          esac
+          # A sleeping instance takes about a minute to wake up: retry instead of failing.
+          curl --fail-with-body --silent --show-error \
+            --retry 5 --retry-delay 20 --retry-all-errors --max-time 120 \
+            -X POST -H "Authorization: Bearer $JOBS_SECRET" "$API_URL$path"

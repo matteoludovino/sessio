@@ -24,3 +24,26 @@ jobs:
       # e2e tests start a real PostgreSQL through Testcontainers (Docker is available on the runner)
       - run: pnpm test:e2e
       - run: pnpm build
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The image Render builds: fails here first if the Dockerfile or the build breaks.
+      - run: docker build -t sessio-api .
