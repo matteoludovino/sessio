@@ -4,7 +4,7 @@ Scheduling for psychology practices: a shared calendar for a clinic's psychologi
 
 The interface is in Brazilian Portuguese (the product is for Brazilian clinics); code and docs are in English.
 
-**Live demo:** _coming soon_. Sign in with one click as the owner, the receptionist or one of the two psychologists. The data is fictional and resets every night.
+**Live demo:** [sessio-project.vercel.app](https://sessio-project.vercel.app). Sign in with one click as the owner, the receptionist or one of the two psychologists. The data is fictional and resets every night.
 
 ![Weekly agenda, reception view](docs/screenshots/agenda.png)
 
@@ -114,7 +114,7 @@ Demo accounts: `helena@equilibrio.test` (owner), `julia@equilibrio.test` (recept
 | API | Render, Docker ([`render.yaml`](render.yaml)) | Runs migrations, then starts. Refuses to boot in production with development secrets. |
 | Web | Vercel ([`apps/web/vercel.json`](apps/web/vercel.json)) | Root directory `apps/web`; `/api/*` is rewritten to the API, so the session cookie stays first-party. Env: `VITE_DEMO_MODE=true`. |
 | Database | Neon (PostgreSQL 16, `aws-us-east-1`) | Scales to zero between runs. |
-| Scheduler | GitHub Actions ([`scheduler.yml`](.github/workflows/scheduler.yml)) | Secrets `API_URL` and `JOBS_SECRET`. |
+| Scheduler | GitHub Actions ([`scheduler.yml`](.github/workflows/scheduler.yml)) | Secrets `API_URL` (the Render URL) and `JOBS_SECRET` (same value as on Render). |
 
 API settings are documented in [`apps/api/.env.example`](apps/api/.env.example). The notes key ring (`NOTES_ENCRYPTION_KEYS`) must be backed up apart from the database: without it the notes can't be read.
 
