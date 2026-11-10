@@ -1,0 +1,27 @@
+# Local development infrastructure. The API and the web app run on the host (pnpm dev).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sessio
+      POSTGRES_PASSWORD: sessio
+      POSTGRES_DB: sessio
+    ports:
+      - "5434:5432" # 5432/5433 are taken by other local projects
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sessio -d sessio"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Catches every email sent in development: UI at http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres-data:
