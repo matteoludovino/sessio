@@ -5,8 +5,18 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-  /** Browser origin of the web app, trusted for cookies and CSRF checks. */
+  /** Browser origin of the web app, trusted for cookies and CSRF checks, and used in email links. */
   WEB_ORIGIN: z.url().default('http://localhost:5173'),
+
+  /** smtp: Mailpit in development or any SMTP relay. resend: Resend's API. log: logs only. */
+  MAIL_TRANSPORT: z.enum(['smtp', 'resend', 'log']).default('smtp'),
+  SMTP_URL: z.url().default('smtp://localhost:1025'),
+  RESEND_API_KEY: z.string().optional(),
+  MAIL_FROM: z.string().default('Sessio <no-reply@sessio.local>'),
+}).superRefine((env, ctx) => {
+  if (env.MAIL_TRANSPORT === 'resend' && !env.RESEND_API_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: 'required when MAIL_TRANSPORT=resend' });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;

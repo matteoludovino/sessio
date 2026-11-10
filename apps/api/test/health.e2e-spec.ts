@@ -1,23 +1,27 @@
-import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { createTestApp } from './support/app.js';
+import { createTestApp, type TestApp } from './support/app.js';
 
 describe('health', () => {
-  let app: INestApplication;
+  let t: TestApp;
 
   beforeAll(async () => {
-    app = await createTestApp();
+    t = await createTestApp();
   });
 
   afterAll(async () => {
-    await app?.close();
+    await t?.app.close();
   });
 
-  it('GET /api/health is up without touching the database', async () => {
-    await request(app.getHttpServer()).get('/api/health').expect(200, { status: 'ok' });
+  it('GET /api/health is public and never touches the database', async () => {
+    await request(t.http).get('/api/health').expect(200, { status: 'ok' });
   });
 
-  it('GET /api/ready reports the database', async () => {
-    await request(app.getHttpServer()).get('/api/ready').expect(200, { status: 'ok', database: 'up' });
+  it('GET /api/ready is public and reports the database', async () => {
+    await request(t.http).get('/api/ready').expect(200, { status: 'ok', database: 'up' });
+  });
+
+  it('sets security headers', async () => {
+    const res = await request(t.http).get('/api/health');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 });

@@ -1,3 +1,5 @@
-// Drizzle schema: tables are added per feature module and re-exported here,
-// so drizzle-kit and the typed database see a single schema.
-export {};
+// Single Drizzle schema: drizzle-kit and the typed database both read this file.
+export * from '../auth/auth.schema.js';
+export * from '../clinics/clinics.schema.js';
+export * from '../staff/invitations.schema.js';
+export * from '../users/users.schema.js';
