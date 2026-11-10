@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** Development-only notes key: refused in production. */
+export const DEV_NOTES_KEYS = '1:c2Vzc2lvLWRldi1ub3Rlcy1rZXktTk9ULVNFQ1JFVCE=';
+
 /** Every setting the API reads, validated once at startup: a bad value fails the boot. */
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -22,9 +25,17 @@ export const envSchema = z.object({
   OUTBOX_RELAY: z.enum(['on', 'off']).default('on'),
   /** HMAC key of the patients' confirmation links. */
   LINK_SECRET: z.string().min(16).default('dev-link-secret-change-me'),
+  /**
+   * Keyring of the clinical notes cipher: "version:base64(32 bytes)", comma-separated; the highest
+   * version encrypts, older ones still decrypt. Kept out of the database on purpose.
+   */
+  NOTES_ENCRYPTION_KEYS: z.string().default(DEV_NOTES_KEYS),
   /** Demo deployment: mails are recorded for the in-app outbox instead of leaving the server. */
   DEMO_MODE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 }).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && env.NOTES_ENCRYPTION_KEYS.includes(DEV_NOTES_KEYS.split(':')[1])) {
+    ctx.addIssue({ code: 'custom', path: ['NOTES_ENCRYPTION_KEYS'], message: 'the development key must not be used in production' });
+  }
   if (env.NODE_ENV === 'production' && (env.LINK_SECRET.startsWith('dev-') || env.LINK_SECRET.length < 32)) {
     ctx.addIssue({ code: 'custom', path: ['LINK_SECRET'], message: 'set a random secret of 32+ characters in production' });
   }

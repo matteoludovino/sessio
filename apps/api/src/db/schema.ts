@@ -1,9 +1,11 @@
 // Single Drizzle schema: drizzle-kit and the typed database both read this file.
 export * from '../appointments/appointments.schema.js';
 export * from '../appointments/series.schema.js';
+export * from '../audit/audit.schema.js';
 export * from '../auth/auth.schema.js';
 export * from '../availability/availability.schema.js';
 export * from '../clinics/clinics.schema.js';
+export * from '../notes/notes.schema.js';
 export * from '../notifications/notifications.schema.js';
 export * from '../patients/patients.schema.js';
 export * from '../rooms/rooms.schema.js';

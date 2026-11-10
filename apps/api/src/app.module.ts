@@ -8,6 +8,7 @@ import { MailModule } from '@nestjs/mail';
 import { OutboxModule, OutboxStorage } from '@nestjs/outbox';
 import { fromDrizzle, PostgresOutboxStore } from '@nestjs/outbox/postgres';
 import { AppointmentsModule } from './appointments/appointments.module.js';
+import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AvailabilityModule } from './availability/availability.module.js';
 import { type Env, validateEnv } from './config/env.js';
@@ -17,6 +18,7 @@ import { PgExceptionFilter } from './db/pg-exception.filter.js';
 import { HealthModule } from './health/health.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { mailTransport } from './mail/mail.config.js';
+import { NotesModule } from './notes/notes.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { PublicSessionsModule } from './public/public-sessions.module.js';
 import { PatientsModule } from './patients/patients.module.js';
@@ -60,6 +62,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
       }),
     }),
     TenancyModule,
+    AuditModule,
     AuthModule,
     StaffModule,
     PatientsModule,
@@ -67,6 +70,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     SessionTypesModule,
     AvailabilityModule,
     AppointmentsModule,
+    NotesModule,
     NotificationsModule,
     PublicSessionsModule,
     JobsModule,
