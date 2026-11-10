@@ -10,6 +10,7 @@ import { fromDrizzle, PostgresOutboxStore } from '@nestjs/outbox/postgres';
 import { AppointmentsModule } from './appointments/appointments.module.js';
 import { AuditModule } from './audit/audit.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { ClinicsModule } from './clinics/clinics.module.js';
 import { AvailabilityModule } from './availability/availability.module.js';
 import { type Env, validateEnv } from './config/env.js';
 import { ClockModule } from './common/clock.js';
@@ -65,6 +66,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     AuditModule,
     AuthModule,
     StaffModule,
+    ClinicsModule,
     PatientsModule,
     RoomsModule,
     SessionTypesModule,

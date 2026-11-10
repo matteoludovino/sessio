@@ -38,6 +38,19 @@ describe('registers', () => {
     delete: (url: string) => request(t.http).delete(url).set('Cookie', who.cookie),
   });
 
+  describe('clinic settings', () => {
+    it('everyone reads them; only the owner changes them, within bounds', async () => {
+      const read = await as(psyA).get('/api/clinic').expect(200);
+      expect(read.body).toMatchObject({ name: 'Clínica Cadastros', timezone: 'America/Sao_Paulo', lateCancelHours: 24, bufferMinutes: 10, reminderLeadHours: 48 });
+      await as(reception).patch('/api/clinic', { bufferMinutes: 15 }).expect(403);
+      await as(owner).patch('/api/clinic', { timezone: 'Mars/Olympus' }).expect(400);
+      await as(owner).patch('/api/clinic', { bufferMinutes: 90 }).expect(400);
+      const updated = await as(owner).patch('/api/clinic', { bufferMinutes: 15, reminderLeadHours: 72 }).expect(200);
+      expect(updated.body).toMatchObject({ bufferMinutes: 15, reminderLeadHours: 72 });
+      await as(owner).patch('/api/clinic', { bufferMinutes: 10, reminderLeadHours: 48 }).expect(200);
+    });
+  });
+
   describe('session types', () => {
     it('a new clinic starts with the default session types', async () => {
       const res = await as(owner).get('/api/session-types').expect(200);

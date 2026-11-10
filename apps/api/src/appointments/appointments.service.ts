@@ -232,6 +232,7 @@ export class AppointmentsService {
       startsAt: a.startsAt,
       endsAt: a.endsAt,
       status: a.status,
+      seriesId: visible ? a.seriesId : null,
       // Colleagues' sessions are opaque to a psychologist: busy, nothing more.
       restricted: !visible,
       patientId: visible ? a.patientId : null,
