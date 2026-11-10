@@ -13,7 +13,13 @@ export const envSchema = z.object({
   SMTP_URL: z.url().default('smtp://localhost:1025'),
   RESEND_API_KEY: z.string().optional(),
   MAIL_FROM: z.string().default('Sessio <no-reply@sessio.local>'),
+
+  /** Bearer secret of POST /api/internal/jobs/run, called by the external scheduler. */
+  JOBS_SECRET: z.string().min(16).default('dev-jobs-secret-change-me'),
 }).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && (env.JOBS_SECRET.startsWith('dev-') || env.JOBS_SECRET.length < 32)) {
+    ctx.addIssue({ code: 'custom', path: ['JOBS_SECRET'], message: 'set a random secret of 32+ characters in production' });
+  }
   if (env.MAIL_TRANSPORT === 'resend' && !env.RESEND_API_KEY) {
     ctx.addIssue({ code: 'custom', path: ['RESEND_API_KEY'], message: 'required when MAIL_TRANSPORT=resend' });
   }

@@ -12,6 +12,8 @@ export const createAppointmentSchema = z.object({
 export type CreateAppointmentDto = z.infer<typeof createAppointmentSchema>;
 
 export const rescheduleSchema = z.object({
+  /** For occurrences of a series: only this one, or this and every later one. */
+  scope: z.enum(['this', 'following']).default('this'),
   startsAt: instant,
   mode: z.enum(['in_person', 'online']).optional(),
   roomId: z.uuid().nullable().optional(),
@@ -19,6 +21,7 @@ export const rescheduleSchema = z.object({
 export type RescheduleDto = z.infer<typeof rescheduleSchema>;
 
 export const cancelSchema = z.object({
+  scope: z.enum(['this', 'following']).default('this'),
   by: z.enum(['patient', 'clinic']),
   reason: z.string().trim().max(300).optional(),
 });

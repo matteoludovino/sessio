@@ -1,4 +1,4 @@
-import { fitsWorkingHours, localTime } from './clinic-time.js';
+import { addDays, fitsWorkingHours, localTime, zonedInstant } from './clinic-time.js';
 
 const SP = 'America/Sao_Paulo'; // UTC-3, no daylight saving time since 2019
 const mondayMorning = [{ weekday: 1, startMinute: 8 * 60, endMinute: 12 * 60 }];
@@ -33,5 +33,28 @@ describe('clinic time', () => {
     expect(fitsWorkingHours(new Date('2027-03-09T02:10:00Z'), new Date('2027-03-09T03:00:00Z'), SP, late)).toBe(true);
     // Monday 23:30 → 00:20
     expect(fitsWorkingHours(new Date('2027-03-09T02:30:00Z'), new Date('2027-03-09T03:20:00Z'), SP, late)).toBe(false);
+  });
+});
+
+describe('local time to instant', () => {
+  it('maps São Paulo wall-clock time to UTC', () => {
+    expect(zonedInstant('2030-01-07', 8 * 60, SP).toISOString()).toBe('2030-01-07T11:00:00.000Z');
+    expect(zonedInstant('2030-01-07', 23 * 60 + 30, SP).toISOString()).toBe('2030-01-08T02:30:00.000Z');
+  });
+
+  it('round-trips with localTime', () => {
+    const instant = zonedInstant('2030-06-15', 14 * 60 + 5, SP);
+    expect(localTime(instant, SP)).toMatchObject({ date: '2030-06-15', minute: 14 * 60 + 5 });
+  });
+
+  it('follows daylight saving time where it exists', () => {
+    // New York: UTC-5 in January, UTC-4 in July
+    expect(zonedInstant('2030-01-15', 9 * 60, 'America/New_York').toISOString()).toBe('2030-01-15T14:00:00.000Z');
+    expect(zonedInstant('2030-07-15', 9 * 60, 'America/New_York').toISOString()).toBe('2030-07-15T13:00:00.000Z');
+  });
+
+  it('adds calendar days across months and years', () => {
+    expect(addDays('2030-01-28', 7)).toBe('2030-02-04');
+    expect(addDays('2030-12-30', 14)).toBe('2031-01-13');
   });
 });

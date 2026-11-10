@@ -13,11 +13,17 @@ import {
   rescheduleSchema,
 } from './appointments.schemas.js';
 import { AppointmentsService } from './appointments.service.js';
+import { type CreateSeriesDto, createSeriesSchema } from './series.schemas.js';
+import { SeriesService } from './series.service.js';
+import { SlotValidator } from './slot-validator.js';
 
 /** Authorization per record happens in the service (who owns the session); routes only require a user. */
 @Controller('appointments')
 export class AppointmentsController {
-  constructor(private readonly appointments: AppointmentsService) {}
+  constructor(
+    private readonly appointments: AppointmentsService,
+    private readonly series: SeriesService,
+  ) {}
 
   @Get()
   @Can(AppointmentPolicy, 'access')
@@ -40,7 +46,7 @@ export class AppointmentsController {
   @Patch(':id/schedule')
   @Can(AppointmentPolicy, 'access')
   reschedule(@Param('id', { schema: uuidParam }) id: string, @Body({ schema: rescheduleSchema }) body: RescheduleDto) {
-    return this.appointments.reschedule(id, body);
+    return body.scope === 'following' ? this.series.rescheduleFollowing(id, body) : this.appointments.reschedule(id, body);
   }
 
   @Post(':id/confirm')
@@ -68,9 +74,30 @@ export class AppointmentsController {
   @HttpCode(200)
   @Can(AppointmentPolicy, 'access')
   cancel(@Param('id', { schema: uuidParam }) id: string, @Body({ schema: cancelSchema }) body: CancelDto) {
-    return this.appointments.cancel(id, body);
+    return body.scope === 'following' ? this.series.cancelFollowing(id, body) : this.appointments.cancel(id, body);
   }
 }
 
-@Module({ controllers: [AppointmentsController], providers: [AppointmentsService, AppointmentPolicy], exports: [AppointmentsService] })
+@Controller('appointment-series')
+export class SeriesController {
+  constructor(private readonly series: SeriesService) {}
+
+  @Post()
+  @Can(AppointmentPolicy, 'access')
+  create(@Body({ schema: createSeriesSchema }) body: CreateSeriesDto) {
+    return this.series.create(body);
+  }
+
+  @Get(':id')
+  @Can(AppointmentPolicy, 'access')
+  get(@Param('id', { schema: uuidParam }) id: string) {
+    return this.series.get(id);
+  }
+}
+
+@Module({
+  controllers: [AppointmentsController, SeriesController],
+  providers: [AppointmentsService, SeriesService, AppointmentPolicy, SlotValidator],
+  exports: [AppointmentsService, SeriesService],
+})
 export class AppointmentsModule {}

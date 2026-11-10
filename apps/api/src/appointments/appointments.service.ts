@@ -6,12 +6,11 @@ import {
 } from '@nestjs/common';
 import { AuthorizationService } from '@nestjs/authorization';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { aliasedTable, and, asc, eq, gt, inArray, lt, ne, type SQL } from 'drizzle-orm';
+import { aliasedTable, and, asc, eq, gt, inArray, lt, type SQL } from 'drizzle-orm';
 import type { User } from '../auth/user.js';
-import { timeOff, workingHours } from '../availability/availability.schema.js';
 import { clinics } from '../clinics/clinics.schema.js';
 import { Clock } from '../common/clock.js';
-import type { Database, Executor } from '../db/db.module.js';
+import type { Database } from '../db/db.module.js';
 import { patients } from '../patients/patients.schema.js';
 import { rooms } from '../rooms/rooms.schema.js';
 import { sessionTypes } from '../session-types/session-types.schema.js';
@@ -20,26 +19,8 @@ import { users } from '../users/users.schema.js';
 import { type AppointmentAction, allowedFrom, assertCan, cancellationStatus, RuleViolation } from './appointment-rules.js';
 import { AppointmentPolicy } from './appointment.policy.js';
 import type { CancelDto, CreateAppointmentDto, ListQuery, RescheduleDto } from './appointments.schemas.js';
-import { type Appointment, type AppointmentMode, appointments, BLOCKING_STATUSES } from './appointments.schema.js';
-import { fitsWorkingHours } from './clinic-time.js';
-
-interface Slot {
-  clinicId: string;
-  psychologistId: string;
-  patientId: string;
-  sessionTypeId: string;
-  mode: AppointmentMode;
-  roomId: string | null;
-  startsAt: Date;
-  /** On reschedule: the session itself doesn't conflict with its own old slot. */
-  excludeId?: string;
-}
-
-export interface Conflict {
-  reason: 'psychologist' | 'room' | 'patient';
-  startsAt: Date;
-  endsAt: Date;
-}
+import { type Appointment, appointments } from './appointments.schema.js';
+import { type SlotRequest, SlotValidator } from './slot-validator.js';
 
 const psychologist = aliasedTable(users, 'psychologist');
 
@@ -50,6 +31,7 @@ export class AppointmentsService {
     private readonly tenant: Tenant,
     private readonly authz: AuthorizationService,
     private readonly clock: Clock,
+    private readonly slots: SlotValidator,
   ) {}
 
   // ── Reading ──────────────────────────────────────────────────────────────────
@@ -106,20 +88,19 @@ export class AppointmentsService {
     const patient = await this.findPatient(dto.patientId);
     await this.authz.authorize(AppointmentPolicy, 'manage', user, patient.psychologistId);
 
-    const slot: Slot = {
+    const request: SlotRequest = {
       clinicId: user.clinicId,
       psychologistId: patient.psychologistId,
       patientId: patient.id,
       sessionTypeId: dto.sessionTypeId,
       mode: dto.mode,
       roomId: dto.roomId ?? null,
-      startsAt: dto.startsAt,
     };
-    const times = await this.validateSlot(this.db, slot);
+    const times = await this.slots.validate(this.db, request, dto.startsAt);
     // The database's exclusion constraints make the final call, also between racing requests.
     const [created] = await this.db
       .insert(appointments)
-      .values({ ...slot, ...times, createdBy: user.id })
+      .values({ ...request, ...times, createdBy: user.id })
       .returning();
     return created;
   }
@@ -130,8 +111,7 @@ export class AppointmentsService {
     this.check('reschedule', current);
     const mode = dto.mode ?? current.mode;
     const roomId = mode === 'online' ? null : dto.roomId !== undefined ? dto.roomId : current.roomId;
-    const slot: Slot = { ...current, mode, roomId, startsAt: dto.startsAt, excludeId: current.id };
-    const times = await this.validateSlot(this.db, slot);
+    const times = await this.slots.validate(this.db, { ...current, mode, roomId, excludeId: current.id }, dto.startsAt);
     return this.transition(current, 'reschedule', { ...times, mode, roomId, status: 'scheduled' });
   }
 
@@ -174,7 +154,8 @@ export class AppointmentsService {
 
   // ── Internals ────────────────────────────────────────────────────────────────
 
-  private check(action: AppointmentAction, appointment: Appointment) {
+  /** 422 with the rule's message when the action isn't allowed on this appointment now. */
+  check(action: AppointmentAction, appointment: Appointment) {
     try {
       assertCan(action, appointment.status, { now: this.clock.now(), startsAt: appointment.startsAt });
     } catch (error) {
@@ -203,95 +184,6 @@ export class AppointmentsService {
       throw new ConflictException('A sessão foi alterada por outra pessoa. Atualize e tente de novo.');
     }
     return updated;
-  }
-
-  /** Every rule a slot must pass, with clear messages, before the database's final check. */
-  private async validateSlot(tx: Executor, slot: Slot) {
-    const now = this.clock.now();
-    if (slot.startsAt.getTime() <= now.getTime()) {
-      throw new UnprocessableEntityException('A sessão precisa começar no futuro.');
-    }
-    const [clinic] = await tx.select().from(clinics).where(eq(clinics.id, slot.clinicId));
-    const [type] = await tx
-      .select()
-      .from(sessionTypes)
-      .where(and(eq(sessionTypes.clinicId, slot.clinicId), eq(sessionTypes.id, slot.sessionTypeId), eq(sessionTypes.active, true)));
-    if (!type) {
-      throw new UnprocessableEntityException('Tipo de sessão não encontrado ou inativo.');
-    }
-    if (slot.mode === 'in_person') {
-      if (!slot.roomId) {
-        throw new UnprocessableEntityException('Sessão presencial precisa de uma sala.');
-      }
-      const [room] = await tx
-        .select({ id: rooms.id })
-        .from(rooms)
-        .where(and(eq(rooms.clinicId, slot.clinicId), eq(rooms.id, slot.roomId), eq(rooms.active, true)));
-      if (!room) {
-        throw new UnprocessableEntityException('Sala não encontrada ou inativa.');
-      }
-    } else if (slot.roomId) {
-      throw new UnprocessableEntityException('Sessão online não usa sala.');
-    }
-
-    const startsAt = slot.startsAt;
-    const endsAt = new Date(startsAt.getTime() + type.durationMinutes * 60_000);
-    const blockedUntil = new Date(endsAt.getTime() + clinic.bufferMinutes * 60_000);
-
-    const ranges = await tx
-      .select()
-      .from(workingHours)
-      .where(and(eq(workingHours.clinicId, slot.clinicId), eq(workingHours.psychologistId, slot.psychologistId)));
-    if (!fitsWorkingHours(startsAt, endsAt, clinic.timezone, ranges)) {
-      throw new UnprocessableEntityException('Fora do horário de trabalho do psicólogo.');
-    }
-    const [absence] = await tx
-      .select({ id: timeOff.id })
-      .from(timeOff)
-      .where(
-        and(
-          eq(timeOff.clinicId, slot.clinicId),
-          eq(timeOff.psychologistId, slot.psychologistId),
-          lt(timeOff.startsAt, endsAt),
-          gt(timeOff.endsAt, startsAt),
-        ),
-      );
-    if (absence) {
-      throw new UnprocessableEntityException('O psicólogo estará ausente neste horário.');
-    }
-
-    const conflicts = await this.findConflicts(tx, slot, startsAt, endsAt, blockedUntil);
-    if (conflicts.length) {
-      throw new ConflictException({ statusCode: 409, message: conflictMessage(conflicts[0].reason), conflicts });
-    }
-    return { startsAt, endsAt, blockedUntil };
-  }
-
-  /** The same overlap rules as the exclusion constraints, to explain what is in the way. */
-  private async findConflicts(tx: Executor, slot: Slot, startsAt: Date, endsAt: Date, blockedUntil: Date): Promise<Conflict[]> {
-    const base = [
-      eq(appointments.clinicId, slot.clinicId),
-      inArray(appointments.status, [...BLOCKING_STATUSES]),
-      ...(slot.excludeId ? [ne(appointments.id, slot.excludeId)] : []),
-    ];
-    const blockedOverlap = and(lt(appointments.startsAt, blockedUntil), gt(appointments.blockedUntil, startsAt));
-    const select = { startsAt: appointments.startsAt, endsAt: appointments.endsAt };
-
-    const [byPsychologist, byRoom, byPatient] = await Promise.all([
-      tx.select(select).from(appointments).where(and(...base, eq(appointments.psychologistId, slot.psychologistId), blockedOverlap)),
-      slot.roomId
-        ? tx.select(select).from(appointments).where(and(...base, eq(appointments.roomId, slot.roomId), blockedOverlap))
-        : Promise.resolve([]),
-      tx
-        .select(select)
-        .from(appointments)
-        .where(and(...base, eq(appointments.patientId, slot.patientId), lt(appointments.startsAt, endsAt), gt(appointments.endsAt, startsAt))),
-    ]);
-    return [
-      ...byPsychologist.map((c) => ({ reason: 'psychologist' as const, ...c })),
-      ...byRoom.map((c) => ({ reason: 'room' as const, ...c })),
-      ...byPatient.map((c) => ({ reason: 'patient' as const, ...c })),
-    ];
   }
 
   private async find(id: string): Promise<Appointment> {
@@ -339,12 +231,4 @@ export class AppointmentsService {
       sessionTypeName: visible ? row.sessionTypeName : null,
     };
   }
-}
-
-export function conflictMessage(reason: Conflict['reason']): string {
-  return {
-    psychologist: 'O psicólogo já tem uma sessão neste horário (considerando o intervalo entre sessões).',
-    room: 'A sala já está ocupada neste horário.',
-    patient: 'O paciente já tem uma sessão neste horário.',
-  }[reason];
 }

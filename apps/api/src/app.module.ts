@@ -12,6 +12,7 @@ import { ClockModule } from './common/clock.js';
 import { DbModule } from './db/db.module.js';
 import { PgExceptionFilter } from './db/pg-exception.filter.js';
 import { HealthModule } from './health/health.module.js';
+import { JobsModule } from './jobs/jobs.module.js';
 import { mailTransport } from './mail/mail.config.js';
 import { PatientsModule } from './patients/patients.module.js';
 import { RoomsModule } from './rooms/rooms.module.js';
@@ -52,6 +53,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     SessionTypesModule,
     AvailabilityModule,
     AppointmentsModule,
+    JobsModule,
     HealthModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: PgExceptionFilter }],

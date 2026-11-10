@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, index, pgEnum, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, date, foreignKey, index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { clinics } from '../clinics/clinics.schema.js';
 import { patients } from '../patients/patients.schema.js';
 import { rooms } from '../rooms/rooms.schema.js';
@@ -40,6 +40,10 @@ export const appointments = pgTable(
     sessionTypeId: uuid().notNull(),
     roomId: uuid(),
     mode: appointmentMode().notNull(),
+    /** Set for occurrences of a series (stage 5), with the local date they were planned for. */
+    seriesId: uuid(),
+    /** Stays the same when the occurrence is rescheduled, so it is never generated twice. */
+    occurrenceDate: date({ mode: 'string' }),
     startsAt: timestamp({ withTimezone: true }).notNull(),
     endsAt: timestamp({ withTimezone: true }).notNull(),
     blockedUntil: timestamp({ withTimezone: true }).notNull(),
@@ -63,11 +67,14 @@ export const appointments = pgTable(
     foreignKey({ name: 'appointments_session_type_fk', columns: [t.clinicId, t.sessionTypeId], foreignColumns: [sessionTypes.clinicId, sessionTypes.id] }),
     // MATCH SIMPLE: checked only when room_id is set (in-person sessions).
     foreignKey({ name: 'appointments_room_fk', columns: [t.clinicId, t.roomId], foreignColumns: [rooms.clinicId, rooms.id] }),
+    // Composite FK to the series is declared in the series migration (avoids a circular import).
+    uniqueIndex('appointments_series_occurrence_key').on(t.seriesId, t.occurrenceDate),
     index('appointments_clinic_starts_idx').on(t.clinicId, t.startsAt),
     index('appointments_psychologist_starts_idx').on(t.psychologistId, t.startsAt),
     index('appointments_patient_starts_idx').on(t.patientId, t.startsAt),
     check('appointments_time_check', sql`${t.startsAt} < ${t.endsAt} and ${t.endsAt} <= ${t.blockedUntil}`),
     check('appointments_room_mode_check', sql`(${t.mode} = 'in_person') = (${t.roomId} is not null)`),
+    check('appointments_series_check', sql`(${t.seriesId} is null) = (${t.occurrenceDate} is null)`),
     check(
       'appointments_cancellation_check',
       sql`(${t.status} in ('cancelled', 'late_cancelled')) = (${t.cancelledAt} is not null and ${t.cancelledBy} is not null)`,
