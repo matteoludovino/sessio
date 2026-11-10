@@ -39,6 +39,8 @@ export const envSchema = z.object({
    * version encrypts, older ones still decrypt. Kept out of the database on purpose.
    */
   NOTES_ENCRYPTION_KEYS: z.string().default(DEV_NOTES_KEYS),
+  /** Password hashes computed at once (128 MiB each): 1 fits a 512 MiB instance with room to spare. */
+  PASSWORD_HASH_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(1),
   /** Demo deployment: mails are recorded for the in-app outbox instead of leaving the server. */
   DEMO_MODE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 }).superRefine((env, ctx) => {
