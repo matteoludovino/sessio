@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto';
 import {
   Controller,
   Headers,
@@ -9,13 +8,13 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
   Post,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Public } from '@nestjs/authentication';
 import { ConfigService } from '@nestjs/config';
 import { OutboxRelay } from '@nestjs/outbox';
 import { AppointmentsModule } from '../appointments/appointments.module.js';
 import { SeriesService } from '../appointments/series.service.js';
+import { assertBearer } from '../common/bearer-secret.js';
 import type { Env } from '../config/env.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { ReminderScheduler } from '../notifications/reminder.scheduler.js';
@@ -81,11 +80,7 @@ export class JobsController {
   @Post('run')
   @HttpCode(200)
   async run(@Headers('authorization') authorization?: string) {
-    const expected = Buffer.from(`Bearer ${this.config.get('JOBS_SECRET', { infer: true })}`);
-    const given = Buffer.from(authorization ?? '');
-    if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
-      throw new UnauthorizedException();
-    }
+    assertBearer(authorization, this.config.get('JOBS_SECRET', { infer: true }));
     return this.jobs.run();
   }
 }

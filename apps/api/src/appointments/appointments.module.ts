@@ -98,6 +98,6 @@ export class SeriesController {
 @Module({
   controllers: [AppointmentsController, SeriesController],
   providers: [AppointmentsService, SeriesService, AppointmentPolicy, SlotValidator],
-  exports: [AppointmentsService, SeriesService],
+  exports: [AppointmentsService, SeriesService, SlotValidator],
 })
 export class AppointmentsModule {}

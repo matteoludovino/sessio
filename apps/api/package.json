@@ -22,7 +22,9 @@
     "dev": "nest start --watch",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:prod": "node dist/db/migrate.js",
+    "demo:reset": "node dist/demo/reset.cli.js"
   },
   "dependencies": {
     "@nestjs/authentication": "^0.1.5",

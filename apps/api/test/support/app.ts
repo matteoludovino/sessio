@@ -38,8 +38,8 @@ export interface TestApp {
  * Module options are evaluated when AppModule's file is imported, so the environment
  * is set first and the module is imported afterwards.
  */
-export async function createTestApp(): Promise<TestApp> {
-  process.env.DATABASE_URL = inject('databaseUrl');
+export async function createTestApp({ database = 'databaseUrl' }: { database?: 'databaseUrl' | 'demoDatabaseUrl' } = {}): Promise<TestApp> {
+  process.env.DATABASE_URL = inject(database);
   process.env.NODE_ENV = 'test';
   process.env.WEB_ORIGIN = 'http://localhost:5173';
   process.env.OUTBOX_RELAY = 'off';

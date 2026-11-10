@@ -17,6 +17,7 @@ import { ClockModule } from './common/clock.js';
 import { type Database, DbModule } from './db/db.module.js';
 import { PgExceptionFilter } from './db/pg-exception.filter.js';
 import { HealthModule } from './health/health.module.js';
+import { DemoModule } from './demo/demo.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { mailTransport } from './mail/mail.config.js';
 import { NotesModule } from './notes/notes.module.js';
@@ -76,6 +77,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     NotificationsModule,
     PublicSessionsModule,
     JobsModule,
+    DemoModule,
     HealthModule,
   ],
   providers: [

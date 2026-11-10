@@ -75,6 +75,14 @@ describe('reminders and patient links', () => {
     t.mailbox.assertNotSent({ to: email });
   });
 
+  it('concurrent job runs send a reminder once', async () => {
+    const session = await book(at('2030-01-08 07:00')); // 46h ahead
+    // The in-process interval and the external scheduler may fire at the same moment.
+    await Promise.all(Array.from({ length: 5 }, () => runJobs()));
+    await t.deliver();
+    expect(t.mailbox.filter({ to: await emailOf(session.patientId), mail: ReminderMail })).toHaveLength(1);
+  });
+
   it('nothing before the lead time; the reminder comes when the session gets close', async () => {
     const session = await book(at('2030-01-08 10:00')); // 49h ahead
     const email = await emailOf(session.patientId);

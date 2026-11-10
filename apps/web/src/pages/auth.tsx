@@ -20,6 +20,38 @@ function AuthShell({ title, subtitle, children }: { title: string; subtitle?: st
   );
 }
 
+/** The demo deployment (VITE_DEMO_MODE=true) offers its shared accounts; they mirror the API's seed. */
+const DEMO = import.meta.env.VITE_DEMO_MODE === 'true';
+const DEMO_PASSWORD = 'sessio-demo-2026';
+const DEMO_ACCOUNTS = [
+  { email: 'helena@equilibrio.test', name: 'Helena', role: 'Proprietária', sees: 'tudo da clínica, menos prontuários' },
+  { email: 'julia@equilibrio.test', name: 'Júlia', role: 'Recepção', sees: 'agenda de todos e pacientes' },
+  { email: 'rafael@equilibrio.test', name: 'Rafael', role: 'Psicólogo', sees: 'a própria agenda e os prontuários dele' },
+  { email: 'marina@equilibrio.test', name: 'Marina', role: 'Psicóloga', sees: 'a própria agenda e os prontuários dela' },
+];
+
+function DemoAccounts({ busy, onPick }: { busy: boolean; onPick: (email: string) => void }) {
+  return (
+    <div className="mt-6 border-t border-stone-200 pt-5">
+      <p className="text-sm font-medium text-stone-800">Demonstração: entre com um clique</p>
+      <p className="mt-0.5 text-xs text-stone-500">Dados fictícios, que voltam ao estado inicial toda madrugada.</p>
+      <div className="mt-3 grid gap-2">
+        {DEMO_ACCOUNTS.map((a) => (
+          <button
+            key={a.email}
+            disabled={busy}
+            onClick={() => onPick(a.email)}
+            className="rounded-lg border border-stone-200 px-3 py-2 text-left text-sm hover:border-brand-500 hover:bg-brand-50 disabled:opacity-50"
+          >
+            <span className="font-medium text-stone-900">{a.name}</span> <span className="text-stone-500">· {a.role}</span>
+            <span className="block text-xs text-stone-500">Vê {a.sees}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const formData = (e: FormEvent<HTMLFormElement>) => Object.fromEntries(new FormData(e.currentTarget)) as Record<string, string>;
 
 export function SignIn() {
@@ -33,7 +65,6 @@ export function SignIn() {
       navigate((location.state as { from?: string } | null)?.from ?? '/agenda', { replace: true });
     },
   });
-  const demo = import.meta.env.VITE_DEMO_HINT as string | undefined;
   return (
     <AuthShell title="Entrar" subtitle="Agenda e prontuário da sua clínica">
       <form className="space-y-4" onSubmit={(e) => (e.preventDefault(), signIn.mutate(formData(e)))}>
@@ -44,7 +75,7 @@ export function SignIn() {
           Entrar
         </Button>
       </form>
-      {demo && <p className="mt-4 rounded-lg bg-brand-50 p-3 text-xs text-brand-700">{demo}</p>}
+      {DEMO && <DemoAccounts busy={signIn.isPending} onPick={(email) => signIn.mutate({ email, password: DEMO_PASSWORD })} />}
       <p className="mt-6 text-center text-sm text-stone-500">
         Nova clínica? <Link className="font-medium text-brand-700 hover:underline" to="/criar-clinica">Crie sua conta</Link>
       </p>

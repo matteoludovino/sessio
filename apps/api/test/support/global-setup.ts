@@ -11,12 +11,20 @@ let container: StartedPostgreSqlContainer;
 export async function setup(project: TestProject) {
   container = await new PostgreSqlContainer('postgres:16-alpine').start();
   const url = container.getConnectionUri();
-  const pool = new Pool({ connectionString: url });
-  await migrate(drizzle({ client: pool }), {
-    migrationsFolder: fileURLToPath(new URL('../../drizzle', import.meta.url)),
-  });
-  await pool.end();
+  // A second database for the demo reset, which truncates everything it sees.
+  const admin = new Pool({ connectionString: url });
+  await admin.query('create database demo');
+  await admin.end();
+  const demoUrl = Object.assign(new URL(url), { pathname: '/demo' }).toString();
+  for (const connectionString of [url, demoUrl]) {
+    const pool = new Pool({ connectionString });
+    await migrate(drizzle({ client: pool }), {
+      migrationsFolder: fileURLToPath(new URL('../../drizzle', import.meta.url)),
+    });
+    await pool.end();
+  }
   project.provide('databaseUrl', url);
+  project.provide('demoDatabaseUrl', demoUrl);
 }
 
 export async function teardown() {
@@ -26,5 +34,6 @@ export async function teardown() {
 declare module 'vitest' {
   export interface ProvidedContext {
     databaseUrl: string;
+    demoDatabaseUrl: string;
   }
 }
