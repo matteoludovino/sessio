@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { keyringProblem } from '../notes/note-cipher.js';
 
 /** Development-only notes key: refused in production. */
 export const DEV_NOTES_KEYS = '1:c2Vzc2lvLWRldi1ub3Rlcy1rZXktTk9ULVNFQ1JFVCE=';
@@ -44,6 +45,10 @@ export const envSchema = z.object({
   /** Demo deployment: mails are recorded for the in-app outbox instead of leaving the server. */
   DEMO_MODE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 }).superRefine((env, ctx) => {
+  const keyring = keyringProblem(env.NOTES_ENCRYPTION_KEYS);
+  if (keyring) {
+    ctx.addIssue({ code: 'custom', path: ['NOTES_ENCRYPTION_KEYS'], message: keyring });
+  }
   if (env.NODE_ENV === 'production' && env.NOTES_ENCRYPTION_KEYS.includes(DEV_NOTES_KEYS.split(':')[1])) {
     ctx.addIssue({ code: 'custom', path: ['NOTES_ENCRYPTION_KEYS'], message: 'the development key must not be used in production' });
   }

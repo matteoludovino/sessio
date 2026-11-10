@@ -19,6 +19,24 @@ export interface EncryptedNote {
 
 export class NoteIntegrityError extends Error {}
 
+/**
+ * What is wrong with a keyring value, in words an operator can act on; null when it is valid.
+ * Checked at startup, so a bad paste in a hosting dashboard fails with a clear message.
+ */
+export function keyringProblem(keyring: string): string | null {
+  if (/^\s*NOTES_ENCRYPTION_KEYS\s*=/.test(keyring)) return 'paste only the value, without "NOTES_ENCRYPTION_KEYS="';
+  if (/^["']|["']$/.test(keyring.trim())) return 'remove the quotes around the value';
+  for (const entry of keyring.split(',')) {
+    const [version, key, extra] = entry.trim().split(':');
+    if (extra !== undefined || key === undefined) return `each entry is "version:base64key" (e.g. "1:..."), got an entry with ${key === undefined ? 'no' : 'more than one'} ":"`;
+    if (!/^\d+$/.test(version)) return `the version before ":" must be a number, got "${version.slice(0, 8)}"`;
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(key)) return `key ${version} is not base64`;
+    const bytes = Buffer.from(key, 'base64').length;
+    if (bytes !== 32) return `key ${version} decodes to ${bytes} bytes, it must be 32 (openssl rand -base64 32)`;
+  }
+  return null;
+}
+
 export class NoteCipher {
   private readonly keys: Map<number, Buffer>;
   private readonly current: number;
