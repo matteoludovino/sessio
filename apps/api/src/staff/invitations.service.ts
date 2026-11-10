@@ -2,18 +2,18 @@ import { createHash, randomBytes } from 'node:crypto';
 import { ConflictException, GoneException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { Mailer } from '@nestjs/mail';
+import { Outbox } from '@nestjs/outbox';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { CredentialsService } from '../auth/credentials.service.js';
 import type { User } from '../auth/user.js';
 import { clinics } from '../clinics/clinics.schema.js';
 import type { Env } from '../config/env.js';
-import type { Database } from '../db/db.module.js';
+import type { Database, Transaction } from '../db/db.module.js';
 import { PgError, pgErrorCode } from '../db/errors.js';
 import { Tenant } from '../tenancy/tenant.js';
 import { normalizeEmail, UsersRepository } from '../users/users.repository.js';
+import { INVITATION_TOPIC, type InvitationMessage } from '../notifications/notification-messages.js';
 import { invitations } from './invitations.schema.js';
-import { StaffInvitationMail } from './staff-invitation.mail.js';
 import type { AcceptInvitationDto, InviteDto } from './staff.schemas.js';
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -26,13 +26,14 @@ export class InvitationsService {
     private readonly tenant: Tenant,
     private readonly usersRepository: UsersRepository,
     private readonly credentials: CredentialsService,
-    private readonly mailer: Mailer,
+    private readonly outbox: Outbox<Transaction>,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
   /**
    * Stores only the token's hash and mails the token to the invitee. The response never
-   * contains it, so the owner can't accept on someone's behalf.
+   * contains it, so the owner can't accept on someone's behalf. (The mail's outbox message holds
+   * the link until it is delivered.)
    */
   async invite(dto: InviteDto) {
     const inviter = this.tenant.user();
@@ -41,33 +42,44 @@ export class InvitationsService {
       throw new ConflictException('Este e-mail já pertence a um usuário.');
     }
     const token = randomBytes(32).toString('base64url');
-    const [invitation] = await this.db
-      .insert(invitations)
-      .values({
-        clinicId: inviter.clinicId,
-        email,
-        name: dto.name,
-        role: dto.role,
-        tokenHash: sha256(token),
-        invitedBy: inviter.id,
-        expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
-      })
-      .returning({
-        id: invitations.id,
-        email: invitations.email,
-        name: invitations.name,
-        role: invitations.role,
-        expiresAt: invitations.expiresAt,
-      });
-
     const [clinic] = await this.db.select({ name: clinics.name }).from(clinics).where(eq(clinics.id, inviter.clinicId));
     const acceptUrl = new URL('/convite', this.config.get('WEB_ORIGIN', { infer: true }));
     acceptUrl.searchParams.set('token', token);
-    // Sent after the commit. Stage 6 moves this to the transactional outbox, with retries.
-    await this.mailer.send(StaffInvitationMail, {
-      to: { name: dto.name, address: email },
-      data: { clinicName: clinic.name, inviteeName: dto.name, inviterName: inviter.name, acceptUrl: acceptUrl.href },
+    // The invitation and its mail commit together: no invitation without a mail, and a mail
+    // server that's down delays the mail (with retries) instead of failing the request.
+    const invitation = await this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(invitations)
+        .values({
+          clinicId: inviter.clinicId,
+          email,
+          name: dto.name,
+          role: dto.role,
+          tokenHash: sha256(token),
+          invitedBy: inviter.id,
+          expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
+        })
+        .returning({
+          id: invitations.id,
+          email: invitations.email,
+          name: invitations.name,
+          role: invitations.role,
+          expiresAt: invitations.expiresAt,
+        });
+      await this.outbox.add(tx, {
+        topic: INVITATION_TOPIC,
+        payload: {
+          clinicId: inviter.clinicId,
+          email,
+          name: dto.name,
+          clinicName: clinic.name,
+          inviterName: inviter.name,
+          acceptUrl: acceptUrl.href,
+        } satisfies InvitationMessage,
+      });
+      return created;
     });
+    this.outbox.notify();
     return invitation;
   }
 

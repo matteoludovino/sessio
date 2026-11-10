@@ -3,7 +3,7 @@ import type { AppointmentStatus } from './appointments.schema.js';
 /**
  * The appointment lifecycle, as pure functions: no database, no framework, unit-tested.
  *
- *   scheduled ──confirm──▶ confirmed
+ *   scheduled ──confirm (only before start)──▶ confirmed
  *   scheduled | confirmed ──complete / noShow (only once started)──▶ completed | no_show
  *   scheduled | confirmed ──cancel (only before start)──▶ cancelled | late_cancelled
  *   scheduled | confirmed ──reschedule (only before start)──▶ scheduled (needs a new confirmation)
@@ -50,7 +50,7 @@ export function assertCan(action: AppointmentAction, status: AppointmentStatus, 
   if ((action === 'complete' || action === 'noShow') && !started) {
     throw new RuleViolation('Só é possível registrar o atendimento ou a falta depois do início da sessão.');
   }
-  if ((action === 'cancel' || action === 'reschedule') && started) {
+  if ((action === 'cancel' || action === 'reschedule' || action === 'confirm') && started) {
     throw new RuleViolation('A sessão já começou: registre o atendimento ou a falta.');
   }
 }

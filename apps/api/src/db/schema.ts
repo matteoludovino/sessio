@@ -4,6 +4,7 @@ export * from '../appointments/series.schema.js';
 export * from '../auth/auth.schema.js';
 export * from '../availability/availability.schema.js';
 export * from '../clinics/clinics.schema.js';
+export * from '../notifications/notifications.schema.js';
 export * from '../patients/patients.schema.js';
 export * from '../rooms/rooms.schema.js';
 export * from '../session-types/session-types.schema.js';

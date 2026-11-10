@@ -51,6 +51,9 @@ export const appointments = pgTable(
     cancelledAt: timestamp({ withTimezone: true }),
     cancelledBy: cancelledBy(),
     cancellationReason: text(),
+    /** The start time a reminder was queued for: a rescheduled session gets a new one. */
+    reminderQueuedFor: timestamp({ withTimezone: true }),
+    reminderSentAt: timestamp({ withTimezone: true }),
     createdBy: uuid()
       .notNull()
       .references(() => users.id),

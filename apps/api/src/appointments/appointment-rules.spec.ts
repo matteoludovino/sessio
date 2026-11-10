@@ -11,6 +11,10 @@ describe('appointment lifecycle', () => {
     expect(() => assertCan('confirm', 'cancelled', before)).toThrow('A sessão já está cancelada.');
   });
 
+  it('confirming a session that already started makes no sense', () => {
+    expect(() => assertCan('confirm', 'scheduled', after)).toThrow(/já começou/);
+  });
+
   it('completes or marks no-show only once the session has started', () => {
     expect(() => assertCan('complete', 'confirmed', before)).toThrow(/depois do início/);
     expect(() => assertCan('noShow', 'scheduled', before)).toThrow(/depois do início/);

@@ -16,7 +16,18 @@ export const envSchema = z.object({
 
   /** Bearer secret of POST /api/internal/jobs/run, called by the external scheduler. */
   JOBS_SECRET: z.string().min(16).default('dev-jobs-secret-change-me'),
+  /** Runs the jobs in-process every N minutes while the API is awake (0: only the external call). */
+  JOBS_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(5),
+  /** "off" for instances that must not publish outbox messages (and in tests, which drive it). */
+  OUTBOX_RELAY: z.enum(['on', 'off']).default('on'),
+  /** HMAC key of the patients' confirmation links. */
+  LINK_SECRET: z.string().min(16).default('dev-link-secret-change-me'),
+  /** Demo deployment: mails are recorded for the in-app outbox instead of leaving the server. */
+  DEMO_MODE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
 }).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && (env.LINK_SECRET.startsWith('dev-') || env.LINK_SECRET.length < 32)) {
+    ctx.addIssue({ code: 'custom', path: ['LINK_SECRET'], message: 'set a random secret of 32+ characters in production' });
+  }
   if (env.NODE_ENV === 'production' && (env.JOBS_SECRET.startsWith('dev-') || env.JOBS_SECRET.length < 32)) {
     ctx.addIssue({ code: 'custom', path: ['JOBS_SECRET'], message: 'set a random secret of 32+ characters in production' });
   }

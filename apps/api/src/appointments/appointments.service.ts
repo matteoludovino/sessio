@@ -112,7 +112,15 @@ export class AppointmentsService {
     const mode = dto.mode ?? current.mode;
     const roomId = mode === 'online' ? null : dto.roomId !== undefined ? dto.roomId : current.roomId;
     const times = await this.slots.validate(this.db, { ...current, mode, roomId, excludeId: current.id }, dto.startsAt);
-    return this.transition(current, 'reschedule', { ...times, mode, roomId, status: 'scheduled' });
+    return this.transition(current, 'reschedule', {
+      ...times,
+      mode,
+      roomId,
+      status: 'scheduled',
+      // The new time gets its own reminder (and old links stop working).
+      reminderQueuedFor: null,
+      reminderSentAt: null,
+    });
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────

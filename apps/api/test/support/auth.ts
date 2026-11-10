@@ -34,12 +34,14 @@ export async function signUpOwner({ http }: TestApp, clinicName = 'Clínica Test
 export async function addStaff(t: TestApp, owner: SignedIn, role: 'reception' | 'psychologist', name = 'Pessoa Equipe') {
   const email = uniqueEmail(role);
   await request(t.http).post('/api/staff/invitations').set('Cookie', owner.cookie).send({ email, name, role }).expect(201);
-  const token = invitationToken(t, email);
+  const token = await invitationToken(t, email);
   const res = await request(t.http).post('/api/invitations/accept').send({ token, password: PASSWORD }).expect(200);
   return { cookie: sessionCookie(res), user: res.body } satisfies SignedIn;
 }
 
-export function invitationToken({ mailbox }: TestApp, email: string): string {
+/** Delivers the outbox (where the invitation mail waits), then reads the link from the mail. */
+export async function invitationToken({ mailbox, deliver }: TestApp, email: string): Promise<string> {
+  await deliver();
   const mail = mailbox.assertSent({ to: email });
   const token = mail.link('/convite').searchParams.get('token');
   if (!token) {

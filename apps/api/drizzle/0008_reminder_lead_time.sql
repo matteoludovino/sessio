@@ -1,0 +1,1 @@
+ALTER TABLE "clinics" ADD COLUMN "reminder_lead_hours" integer DEFAULT 48 NOT NULL;

@@ -25,6 +25,9 @@ describe('staff and invitations', () => {
 
     // The response carries no token: the owner can't accept on the psychologist's behalf.
     expect(JSON.stringify(res.body)).not.toMatch(/token/i);
+    // The mail waits in the outbox, committed with the invitation, until the relay delivers it.
+    t.mailbox.assertNotSent({ to: email });
+    await t.deliver();
     const mail = t.mailbox.assertSent({ to: email, mail: StaffInvitationMail });
     expect(mail.subject).toBe('Convite para a equipe de Clínica Horizonte');
     expect(mail.link('/convite').searchParams.get('token')).toBeTruthy();
@@ -45,7 +48,7 @@ describe('staff and invitations', () => {
       .set('Cookie', owner.cookie)
       .send({ email, name: 'Recepção', role: 'reception' })
       .expect(201);
-    const token = invitationToken(t, email);
+    const token = await invitationToken(t, email);
     const results = await Promise.all(
       Array.from({ length: 5 }, () => request(t.http).post('/api/invitations/accept').send({ token, password: PASSWORD })),
     );
