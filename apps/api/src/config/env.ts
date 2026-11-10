@@ -4,12 +4,21 @@ import { z } from 'zod';
 export const DEV_NOTES_KEYS = '1:c2Vzc2lvLWRldi1ub3Rlcy1rZXktTk9ULVNFQ1JFVCE=';
 
 /** Every setting the API reads, validated once at startup: a bad value fails the boot. */
+/** "https://app.example.com/" is read as its origin; a real path, query or fragment is refused. */
+const origin = z
+  .url()
+  .refine((v) => {
+    const u = new URL(v);
+    return u.pathname === '/' && !u.search && !u.hash;
+  }, 'must be an origin (scheme://host[:port]), without a path')
+  .transform((v) => new URL(v).origin);
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   /** Browser origin of the web app, trusted for cookies and CSRF checks, and used in email links. */
-  WEB_ORIGIN: z.url().default('http://localhost:5173'),
+  WEB_ORIGIN: origin.default('http://localhost:5173'),
 
   /** smtp: Mailpit in development or any SMTP relay. resend: Resend's API. log: logs only. */
   MAIL_TRANSPORT: z.enum(['smtp', 'resend', 'log']).default('smtp'),
