@@ -13,6 +13,13 @@ const BY_CONSTRAINT: Record<string, [HttpStatus, string]> = {
   working_hours_no_overlap: [HttpStatus.CONFLICT, 'Os horários de trabalho se sobrepõem.'],
   time_off_no_overlap: [HttpStatus.CONFLICT, 'Já existe uma ausência cadastrada neste período.'],
   patients_psychologist_fk: [HttpStatus.UNPROCESSABLE_ENTITY, 'Psicólogo não encontrado nesta clínica.'],
+  // Races the API's pre-check can't see: the database decides, the loser gets the same message.
+  appointments_psychologist_no_overlap: [
+    HttpStatus.CONFLICT,
+    'O psicólogo já tem uma sessão neste horário (considerando o intervalo entre sessões).',
+  ],
+  appointments_room_no_overlap: [HttpStatus.CONFLICT, 'A sala já está ocupada neste horário.'],
+  appointments_patient_no_overlap: [HttpStatus.CONFLICT, 'O paciente já tem uma sessão neste horário.'],
 };
 
 const BY_CODE: Record<string, [HttpStatus, string]> = {

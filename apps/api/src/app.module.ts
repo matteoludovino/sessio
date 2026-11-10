@@ -4,9 +4,11 @@ import { AuthenticationModule } from '@nestjs/authentication';
 import { AuthorizationModule } from '@nestjs/authorization';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailModule } from '@nestjs/mail';
+import { AppointmentsModule } from './appointments/appointments.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AvailabilityModule } from './availability/availability.module.js';
 import { type Env, validateEnv } from './config/env.js';
+import { ClockModule } from './common/clock.js';
 import { DbModule } from './db/db.module.js';
 import { PgExceptionFilter } from './db/pg-exception.filter.js';
 import { HealthModule } from './health/health.module.js';
@@ -21,6 +23,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     DbModule,
+    ClockModule,
     // Authentication first: its global guard sets the user that authorization reads.
     AuthenticationModule.forRootAsync({
       inject: [ConfigService],
@@ -48,6 +51,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     RoomsModule,
     SessionTypesModule,
     AvailabilityModule,
+    AppointmentsModule,
     HealthModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: PgExceptionFilter }],

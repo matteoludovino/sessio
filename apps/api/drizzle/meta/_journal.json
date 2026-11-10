@@ -22,6 +22,20 @@
       "when": 1794316710590,
       "tag": "0002_availability_exclusions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794317230794,
+      "tag": "0003_appointments",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794317231736,
+      "tag": "0004_appointment_exclusions",
+      "breakpoints": true
     }
   ]
 }
