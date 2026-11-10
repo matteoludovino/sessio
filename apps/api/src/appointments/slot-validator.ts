@@ -154,16 +154,18 @@ export class SlotValidator {
     ];
     const blockedOverlap = and(lt(appointments.startsAt, blockedUntil), gt(appointments.blockedUntil, startsAt));
     const select = { startsAt: appointments.startsAt, endsAt: appointments.endsAt };
-    const [byPsychologist, byRoom, byPatient] = await Promise.all([
-      tx.select(select).from(appointments).where(and(...base, eq(appointments.psychologistId, request.psychologistId), blockedOverlap)),
-      request.roomId
-        ? tx.select(select).from(appointments).where(and(...base, eq(appointments.roomId, request.roomId), blockedOverlap))
-        : Promise.resolve([]),
-      tx
-        .select(select)
-        .from(appointments)
-        .where(and(...base, eq(appointments.patientId, request.patientId), lt(appointments.startsAt, endsAt), gt(appointments.endsAt, startsAt))),
-    ]);
+    // One after the other: `tx` may be a transaction, i.e. a single connection.
+    const byPsychologist = await tx
+      .select(select)
+      .from(appointments)
+      .where(and(...base, eq(appointments.psychologistId, request.psychologistId), blockedOverlap));
+    const byRoom = request.roomId
+      ? await tx.select(select).from(appointments).where(and(...base, eq(appointments.roomId, request.roomId), blockedOverlap))
+      : [];
+    const byPatient = await tx
+      .select(select)
+      .from(appointments)
+      .where(and(...base, eq(appointments.patientId, request.patientId), lt(appointments.startsAt, endsAt), gt(appointments.endsAt, startsAt)));
     return [
       ...byPsychologist.map((c) => ({ reason: 'psychologist' as const, ...c })),
       ...byRoom.map((c) => ({ reason: 'room' as const, ...c })),
