@@ -1,4 +1,4 @@
-import { boolean, index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, pgEnum, pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { clinics } from '../clinics/clinics.schema.js';
 
 export const staffRole = pgEnum('staff_role', ['owner', 'reception', 'psychologist']);
@@ -20,7 +20,12 @@ export const users = pgTable(
     active: boolean().notNull().default(true),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('users_email_key').on(t.email), index('users_clinic_id_idx').on(t.clinicId)],
+  (t) => [
+    uniqueIndex('users_email_key').on(t.email),
+    index('users_clinic_id_idx').on(t.clinicId),
+    // Target of composite foreign keys: a row can only point at staff of its own clinic.
+    unique('users_clinic_id_id_key').on(t.clinicId, t.id),
+  ],
 );
 
 export type UserRow = typeof users.$inferSelect;

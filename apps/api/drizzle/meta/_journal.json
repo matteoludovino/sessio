@@ -8,6 +8,20 @@
       "when": 1794316170768,
       "tag": "0000_tenancy_and_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794316709747,
+      "tag": "0001_registers",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794316710590,
+      "tag": "0002_availability_exclusions",
+      "breakpoints": true
     }
   ]
 }

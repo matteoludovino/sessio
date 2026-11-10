@@ -3,6 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { clinics } from '../clinics/clinics.schema.js';
 import type { Database } from '../db/db.module.js';
 import { PgError, pgErrorCode } from '../db/errors.js';
+import { DEFAULT_SESSION_TYPES, sessionTypes } from '../session-types/session-types.schema.js';
 import { UsersRepository } from '../users/users.repository.js';
 import type { SignUpDto } from './auth.schemas.js';
 import { CredentialsService } from './credentials.service.js';
@@ -16,12 +17,13 @@ export class AuthService {
     private readonly credentials: CredentialsService,
   ) {}
 
-  /** A new clinic and its owner, in one transaction: both exist or neither does. */
+  /** A new clinic, its owner and default session types, in one transaction: all exist or none. */
   async registerClinic(dto: SignUpDto): Promise<User> {
     const passwordHash = await this.credentials.hash(dto.password);
     try {
       return await this.db.transaction(async (tx) => {
         const [clinic] = await tx.insert(clinics).values({ name: dto.clinicName }).returning({ id: clinics.id });
+        await tx.insert(sessionTypes).values(DEFAULT_SESSION_TYPES.map((t) => ({ ...t, clinicId: clinic.id })));
         return this.usersRepository.create(
           { clinicId: clinic.id, email: dto.email, name: dto.name, role: 'owner', passwordHash },
           tx,

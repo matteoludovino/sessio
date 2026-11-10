@@ -1,13 +1,19 @@
 import { Module } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
 import { AuthenticationModule } from '@nestjs/authentication';
 import { AuthorizationModule } from '@nestjs/authorization';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailModule } from '@nestjs/mail';
 import { AuthModule } from './auth/auth.module.js';
+import { AvailabilityModule } from './availability/availability.module.js';
 import { type Env, validateEnv } from './config/env.js';
 import { DbModule } from './db/db.module.js';
+import { PgExceptionFilter } from './db/pg-exception.filter.js';
 import { HealthModule } from './health/health.module.js';
 import { mailTransport } from './mail/mail.config.js';
+import { PatientsModule } from './patients/patients.module.js';
+import { RoomsModule } from './rooms/rooms.module.js';
+import { SessionTypesModule } from './session-types/session-types.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 
@@ -38,7 +44,12 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
     TenancyModule,
     AuthModule,
     StaffModule,
+    PatientsModule,
+    RoomsModule,
+    SessionTypesModule,
+    AvailabilityModule,
     HealthModule,
   ],
+  providers: [{ provide: APP_FILTER, useClass: PgExceptionFilter }],
 })
 export class AppModule {}

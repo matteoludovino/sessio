@@ -3,6 +3,7 @@ export const PgError = {
   uniqueViolation: '23505',
   exclusionViolation: '23P01',
   foreignKeyViolation: '23503',
+  checkViolation: '23514',
 } as const;
 
 /** The SQLSTATE of a node-postgres error, also when an ORM wraps it in `cause`. */
@@ -11,6 +12,17 @@ export function pgErrorCode(error: unknown): string | undefined {
     const code = (e as { code?: unknown }).code;
     if (typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code)) {
       return code;
+    }
+  }
+  return undefined;
+}
+
+/** The constraint a node-postgres error names, also when an ORM wraps it in `cause`. */
+export function pgConstraint(error: unknown): string | undefined {
+  for (let e: unknown = error; e && typeof e === 'object'; e = (e as { cause?: unknown }).cause) {
+    const constraint = (e as { constraint?: unknown }).constraint;
+    if (typeof constraint === 'string') {
+      return constraint;
     }
   }
   return undefined;
